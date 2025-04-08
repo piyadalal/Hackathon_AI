@@ -1,16 +1,18 @@
-import os
+
 import tempfile
 from pathlib import Path
 import openai
 import os
 
 import streamlit as st
+
 import numpy as np
 import weaviate
 from dotenv import load_dotenv
 from llama_index.readers.file import PDFReader
 from llama_index.vector_stores.weaviate import WeaviateVectorStore
 from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core.llms import ChatMessage
 from llama_index.llms.azure_openai import AzureOpenAI
 from llama_index.embeddings.azure_openai import AzureOpenAIEmbedding
 from llama_index.core import Settings
@@ -46,29 +48,39 @@ collection_name = "RequestAnalyzer"
 if client.collections.exists(collection_name):
     client.collections.delete(collection_name)
 
+
+
 st.set_page_config(page_title="Sales Request Assistant", layout="centered")
 st.title("🤖 Sales Request Assistant")
 st.markdown("Please provide details about your request. I will guide you through a few questions.")
+
 # Initialize chat history
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful assistant that collects sales request information by asking smart questions and guiding the user through 18 required fields."}
+    ]
 
-# Display chat messages from history on app rerun
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Display previous messages
+for msg in st.session_state.messages[1:]:  # skip system
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# React to user input
-if prompt := st.chat_input("What is up?"):
-    # Display user message in chat message container
+# Chat input
+if prompt := st.chat_input("Please describe your request"):
+    # Show user input
     st.chat_message("user").markdown(prompt)
-    # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    response = f"Echo: {prompt}"
-    # Display assistant response in chat message container
-    with st.chat_message("assistant"):
-        st.markdown(response)
-    # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # Prepare messages in llama_index format
+    history = [
+        ChatMessage(role=m["role"], content=m["content"]) for m in st.session_state.messages
+    ]
 
+    # Call AzureOpenAI LLM
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = llm.chat(messages=history)
+            st.markdown(response.message.content)
+
+    # Save response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": response.message.content})
