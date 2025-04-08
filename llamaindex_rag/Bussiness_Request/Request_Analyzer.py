@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+import pandas as pd
+from llama_index.core import SimpleDirectoryReader
+from llama_index.core import Document
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -39,15 +42,33 @@ Settings.embed_model = embed_model
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "Data"
 documents = SimpleDirectoryReader(str(DATA_DIR)).load_data()
-index = VectorStoreIndex.from_documents(documents)
-query_engine = index.as_query_engine(similarity_top_k=3)
+
+# Load questions and acceptance criteria
+question_files = list(DATA_DIR.glob("*.xlsx"))
+questions_df = pd.concat([pd.read_excel(f) for f in question_files], ignore_index=True)
+# Optional: Print or preview questions_df
+print(questions_df.head())
+
+
+# Combine question and acceptance into one string for better context
+reference_texts = [
+    f"Q: {row['Question']} | Acceptance: {row['Acceptance Criteria']}"
+    for _, row in questions_df.iterrows()
+]
+
+# Convert to Documents
+reference_docs = [Document(text=txt) for txt in reference_texts]
+
+# Build index
+question_reference_index = VectorStoreIndex.from_documents(reference_docs)
+question_engine = question_reference_index.as_query_engine(similarity_top_k=1)
 
 # ------------------------------
 # Streamlit UI
 # ------------------------------
 st.set_page_config(page_title="Sales Request Assistant", layout="centered")
-st.title("🤖 Sales Request Assistant")
-st.markdown("Please describe your request. I will guide you based on internal knowledge.")
+st.title("🤖 Welcome to Capabilio")
+st.markdown("Please describe your idea briefly, and I'll guide you from there. 😊")
 
 # Initialize session message history
 if "messages" not in st.session_state:
@@ -67,6 +88,6 @@ if prompt := st.chat_input("Type your request here..."):
     # RAG-powered answer using documents
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            response = query_engine.query(prompt)
+            response = question_engine.query(prompt)
             st.markdown(response.response)
             st.session_state.messages.append({"role": "assistant", "content": response.response})
