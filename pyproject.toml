@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "llamaindex-rag"
+version = "0.1.0"
+description = ""
+authors = ["Dirk Papenberg <dirk.papenberg@nttdata.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.1"
+weaviate-client = "^4.9.4"
+streamlit = "^1.40.1"
+llama-index = "^0.12.1"
+llama-index-vector-stores-weaviate = "^1.2.0"
+llama-index-embeddings-azure-openai = "^0.3.0"
+llama-index-llms-azure-openai = "^0.3.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
